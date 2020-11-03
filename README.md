@@ -35,3 +35,5 @@ The code is pretty self-explanatory so I won't be commenting it this time.
 ## Supported versions
 
 Technically, this attack works from Windows 7 (7600) up until the latest version of Windows 10. However, with every single new build of Windows 10, the implementation of `UserAssocSet()` is changed. And it was only at build 19041 that `UserAssocSet()` was defined in `SystemSettings.Handers.dll`. ByeIntegrity 3.0 was only tested and designed for Windows 7, 8/8.1, and Windows 10 build 19041/19042. It may work in the future or it may not. If you want something that'll work across all Windows versions, use UACME. It contains all the signatures for all existing Windows versions and will be updated to support new builds in the future, if the exploit has not been patched yet.
+
+[![HitCount](http://hits.dwyl.com/AzAgarampur/byeintegrity3-uac.svg)](http://hits.dwyl.com/AzAgarampur/byeintegrity3-uac)
