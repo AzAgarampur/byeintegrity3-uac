@@ -22,18 +22,18 @@ So most of the code is using pattern scanning to find the address of the functio
 
 *Note: on Windows 10, `UserAssocSet()` calls `SetUserAssoc()`. ByeIntegrity 3.0 uses the pattern for `SetUserAssoc()` and calls that directly instead of finding and calling `UserAssocSet()`.*
 
-## UACME
-This attack is implemented in UACME as method #65. The implementation in UACME is the same as ByeIntegrity 3.0, except for one major difference. UACME uses `UserAssocSet()` from `shell32.dll` across all Windows versions, even Windows 10.
+## UACMe
+This attack is implemented in UACMe as method #65. The implementation in UACMe is the same as ByeIntegrity 3.0, except for one major difference. UACMe uses `UserAssocSet()` from `shell32.dll` across all Windows versions, even Windows 10.
 
 ## Using the code
 If you’re reading this then you probably know how to compile the source. Just note that this hasn’t been tested or designed with x86 in mind at all, and it probably won’t work on x86 anyways.
 
-Just like UACME,  **I will never upload compiled binaries to this repo.**  There are always people who want the world to crash and burn, and I'm not going to provide an easy route for them to run this on somebody else's computer and cause intentional damage. I also don't want script-kiddies to use this attack without understanding what it does and the damage it can cause.
+Just like UACMe,  **I will never upload compiled binaries to this repo.**  There are always people who want the world to crash and burn, and I'm not going to provide an easy route for them to run this on somebody else's computer and cause intentional damage. I also don't want script-kiddies to use this attack without understanding what it does and the damage it can cause.
 
 The code is pretty self-explanatory so I won't be commenting it this time.
 
 ## Supported versions
 
-Technically, this attack works from Windows 7 (7600) up until the latest version of Windows 10. However, with every single new build of Windows 10, the implementation of `UserAssocSet()` is changed. And it was only at build 19041 that `UserAssocSet()` was defined in `SystemSettings.Handers.dll`. ByeIntegrity 3.0 was only tested and designed for Windows 7, 8/8.1, and Windows 10 build 19041/19042. It may work in the future or it may not. If you want something that'll work across all Windows versions, use UACME. It contains all the signatures for all existing Windows versions and will be updated to support new builds in the future, if the exploit has not been patched yet.
+Technically, this attack works from Windows 7 (7600) up until the latest version of Windows 10. However, with every single new build of Windows 10, the implementation of `UserAssocSet()` is changed. And it was only at build 19041 that `UserAssocSet()` was defined in `SystemSettings.Handers.dll`. ByeIntegrity 3.0 was only tested and designed for Windows 7, 8/8.1, and Windows 10 build 19041/19042. It may work in the future or it may not. If you want something that'll work across all Windows versions, use UACMe. It contains all the signatures for all existing Windows versions and will be updated to support new builds in the future, if the exploit has not been patched yet.
 
 [![HitCount](http://hits.dwyl.com/AzAgarampur/byeintegrity3-uac.svg)](http://hits.dwyl.com/AzAgarampur/byeintegrity3-uac)
