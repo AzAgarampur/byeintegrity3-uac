@@ -2,6 +2,10 @@
 The third attack to bypass User Account Control (UAC) and gain elevated (Administrator) privileges to run any program at a high integrity level.
 ![](example.gif)
 
+## Requirements
+- Administrator account
+- UAC notification level set to default or lower
+
 ## How it works
 ByeIntegrity 3.0 uses an elevated COM interface in combination with a shell protocol handler hijack in order to bypass UAC. If you're unfamiliar with autoelevated COM interfaces, visit the GitHub repo for ByeIntegrity 2.0 and read all about them over there.
 
